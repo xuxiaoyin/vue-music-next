@@ -12,58 +12,90 @@
         <h2 class="subtitle">{{ currentSong.singer }}</h2>
       </div>
       <div class="bottom">
+        <div class="progress-wrapper">
+          <span class="time time-l">{{formatTime(currentTime)}}</span>
+          <div class="progress-bar-wrapper">
+            <progress-bar :progress="progress"></progress-bar>
+          </div>
+          <span class="time time-r">{{formatTime(currentSong.duration)}}</span>
+        </div>
         <div class="operators">
           <div class="icon i-left">
-            <i class="icon-sequence"></i>
+            <i :class="modeIcon" @click="changeMode"></i>
           </div>
-          <div class="icon i-left">
+          <div class="icon i-left" :class="disableCls">
             <i class="icon-prev" @click="prev"></i>
           </div>
-          <div class="icon i-center">
+          <div class="icon i-center" :class="disableCls">
             <i :class="playIcon" @click="togglePlay"></i>
           </div>
-          <div class="icon i-right">
+          <div class="icon i-right" :class="disableCls">
             <i class="icon-next" @click="next"></i>
           </div>
           <div class="icon i-right">
-            <i class="icon-not-favorite"></i>
+            <i :class="getFavoriteIcon(currentSong)" @click="toggleFavorite(currentSong)"></i>
           </div>
         </div>
       </div>
     </div>
-    <audio ref="audioRef" @pause="pause"></audio>
+    <audio ref="audioRef" @pause="pause" @canplay="ready" @error="error" @timeupdate="updateTime"></audio>
   </div>
 </template>
 
 <script>
 import { useStore } from 'vuex'
 import { computed, watch, ref } from 'vue'
+import useMode from './use-mode'
+import useFavorite from './use-favorite'
+import ProgressBar from './progress-bar'
+import { formatTime } from '@/assets/js/util'
 
 export default {
   name: 'player',
+  components: { ProgressBar },
   setup() {
     const audioRef = ref(null)
+    const songReady = ref(false)
+    const currentTime = ref(0)
+
     const store = useStore()
     const fullScreen = computed(() => store.state.fullScreen)
     const currentSong = computed(() => store.getters.currentSong)
     const playing = computed(() => store.state.playing)
     const currentIndex = computed(() => store.state.currentIndex)
+
+    const { modeIcon, changeMode } = useMode()
+    const { getFavoriteIcon, toggleFavorite } = useFavorite()
+
     const playList = computed(() => store.state.playList)
 
     const playIcon = computed(() => {
       return playing.value ? 'icon-pause' : 'icon-play'
     })
 
+    const progress = computed(() => {
+      return currentTime.value / currentSong.value.duration
+    })
+
+    const disableCls = computed(() => {
+      return songReady.value ? '' : 'disable'
+    })
+
     watch(currentSong, (newSong) => {
       if (!newSong.id || !newSong.url) {
         return
       }
+      currentTime.value = 0
+      songReady.value = false
       const audioEl = audioRef.value
       audioEl.src = newSong.url
       audioEl.play()
     })
 
     watch(playing, (newPlaying) => {
+      if (!songReady.value) {
+        return
+      }
       const audioEl = audioRef.value
       newPlaying ? audioEl.play() : audioEl.pause()
     })
@@ -73,6 +105,9 @@ export default {
     }
 
     function togglePlay() {
+      if (!songReady.value) {
+        return
+      }
       store.commit('setPlayingState', !playing.value)
     }
 
@@ -82,7 +117,7 @@ export default {
 
     function prev() {
       const list = playList.value
-      if (!list.length) {
+      if (!songReady.value || !list.length) {
         return
       }
       if (list.length === 1) {
@@ -101,7 +136,7 @@ export default {
 
     function next() {
       const list = playList.value
-      if (!list.length) {
+      if (!songReady.value || !list.length) {
         return
       }
       if (list.length === 1) {
@@ -124,16 +159,44 @@ export default {
       audioEl.play()
     }
 
+    function ready() {
+      if (songReady.value) {
+        return
+      }
+      songReady.value = true
+    }
+
+    function error() {
+      songReady.value = true
+    }
+
+    function updateTime(e) {
+      currentTime.value = e.target.currentTime
+    }
+
     return {
       audioRef,
       fullScreen,
+      currentTime,
       currentSong,
-      goBack,
+      disableCls,
       playIcon,
+      progress,
+      goBack,
       togglePlay,
       pause,
       prev,
-      next
+      next,
+      ready,
+      error,
+      updateTime,
+      formatTime,
+      // useMode
+      modeIcon,
+      changeMode,
+      // favorite
+      getFavoriteIcon,
+      toggleFavorite
     }
   }
 }
@@ -199,6 +262,29 @@ export default {
       position: absolute;
       bottom: 50px;
       width: 100%;
+      .progress-wrapper {
+        display: flex;
+        align-items: center;
+        width: 80%;
+        margin: 0px auto;
+        padding: 10px 0;
+        .time {
+          color: $color-text;
+          font-size: $font-size-small;
+          flex: 0 0 40px;
+          line-height: 30px;
+          width: 40px;
+          &.time-l {
+            text-align: left;
+          }
+          &.time-r {
+            text-align: right;
+          }
+        }
+        .progress-bar-wrapper {
+          flex: 1;
+        }
+      }
       .operators {
         display: flex;
         align-items: center;
