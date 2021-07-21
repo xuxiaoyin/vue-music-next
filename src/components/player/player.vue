@@ -1,6 +1,6 @@
 <template>
-  <div class="player">
-    <div class="noemal-player" v-show="fullScreen">
+  <div class="player" v-show="playList.length">
+    <div class="normal-player" v-show="fullScreen">
       <div class="background">
         <img :src="currentSong.pic">
       </div>
@@ -11,15 +11,23 @@
         <h1 class="title">{{ currentSong.name }}</h1>
         <h2 class="subtitle">{{ currentSong.singer }}</h2>
       </div>
-      <div class="middle">
-        <div style="display: none" class="middle-l">
+      <div
+        class="middle"
+        @touchstart.prevent="onMiddleTouchStart"
+        @touchmove.prevent="onMiddleTouchMove"
+        @touchend.prevent="onMiddleTouchEnd"
+      >
+        <div class="middle-l" :style="middleLStyle">
           <div class="cd-wrapper">
             <div class="cd" ref="cdRef">
               <img ref="cdImageRef" class="image" :class="cdCls" :src="currentSong.pic">
             </div>
           </div>
+          <div class="playing-lyric-wrapper">
+            <div class="playing-lyric">{{playingLyric}}</div>
+          </div>
         </div>
-        <scroll ref="scrollRef" class="middle-r">
+        <scroll ref="scrollRef" class="middle-r" :style="middleRStyle">
           <div class="lyric-wrapper">
             <div ref="lyricListRef" v-if="currentLyric">
               <p
@@ -29,14 +37,22 @@
                 :key="line.num"
               >{{line.txt}}</p>
             </div>
+            <div class="pure-music" v-show="pureMusicLyric">
+              <p>{{pureMusicLyric}}</p>
+            </div>
           </div>
         </scroll>
       </div>
       <div class="bottom">
+        <div class="dot-wrapper">
+          <span class="dot" :class="{'active': currentShow === 'cd'}"></span>
+          <span class="dot" :class="{'active': currentShow === 'lyric'}"></span>
+        </div>
         <div class="progress-wrapper">
           <span class="time time-l">{{formatTime(currentTime)}}</span>
           <div class="progress-bar-wrapper">
             <progress-bar
+              ref="barRef"
               :progress="progress"
               @progress-changing="onProgressChanging"
               @progress-changed="onProgressChanged"
@@ -63,27 +79,31 @@
         </div>
       </div>
     </div>
+    <mini-player :progress="progress" :togglePlay="togglePlay"></mini-player>
     <audio ref="audioRef" @pause="pause" @canplay="ready" @error="error" @timeupdate="updateTime" @ended="end"></audio>
   </div>
 </template>
 
 <script>
 import { useStore } from 'vuex'
-import { computed, watch, ref } from 'vue'
+import { computed, watch, ref, nextTick } from 'vue'
 import useMode from './use-mode'
 import useFavorite from './use-favorite'
 import useCD from './use-cd'
 import useLyric from './use-lyric'
+import useMiddleInteractive from './use-middle-interactive'
 import ProgressBar from './progress-bar'
+import Scroll from '@/components/base/scroll/scroll'
+import MiniPlayer from './mini-player'
 import { formatTime } from '@/assets/js/util'
 import { PLAY_MODE } from '@/assets/js/constant'
-import Scroll from '@/components/base/scroll/scroll'
 
 export default {
   name: 'player',
-  components: { ProgressBar, Scroll },
+  components: { ProgressBar, Scroll, MiniPlayer },
   setup() {
     const audioRef = ref(null)
+    const barRef = ref(null)
     const songReady = ref(false)
     const currentTime = ref(0)
     let progressChanging = false
@@ -98,7 +118,8 @@ export default {
     const { modeIcon, changeMode } = useMode()
     const { getFavoriteIcon, toggleFavorite } = useFavorite()
     const { cdCls, cdRef, cdImageRef } = useCD()
-    const { currentLyric, currentLineNum, playLyric, scrollRef, lyricListRef, stopLyric } = useLyric({ songReady, currentTime })
+    const { currentLyric, currentLineNum, playLyric, scrollRef, lyricListRef, stopLyric, pureMusicLyric, playingLyric } = useLyric({ songReady, currentTime })
+    const { middleLStyle, middleRStyle, currentShow, onMiddleTouchStart, onMiddleTouchMove, onMiddleTouchEnd } = useMiddleInteractive()
 
     const playList = computed(() => store.state.playList)
 
@@ -137,6 +158,13 @@ export default {
         audioEl.pause()
         stopLyric()
       }
+    })
+
+    watch(fullScreen, async (newFullScreen) => {
+        if (newFullScreen) {
+          await nextTick()
+          barRef.value.setOffset(progress.value)
+        }
     })
 
     function goBack() {
@@ -244,12 +272,14 @@ export default {
 
     return {
       audioRef,
+      barRef,
       fullScreen,
       currentTime,
       currentSong,
       disableCls,
       playIcon,
       progress,
+      playList,
       goBack,
       togglePlay,
       pause,
@@ -275,8 +305,17 @@ export default {
       // lyric
       currentLyric,
       currentLineNum,
+      pureMusicLyric,
       scrollRef,
-      lyricListRef
+      lyricListRef,
+      playingLyric,
+      // middle
+      middleLStyle,
+      middleRStyle,
+      currentShow,
+      onMiddleTouchStart,
+      onMiddleTouchMove,
+      onMiddleTouchEnd
     }
   }
 }
@@ -284,7 +323,7 @@ export default {
 
 <style lang="scss" scoped>
 .player {
-  .noemal-player {
+  .normal-player {
     position: fixed;
     left: 0;
     right: 0;
@@ -378,6 +417,18 @@ export default {
             }
           }
         }
+        .playing-lyric-wrapper {
+          width: 80%;
+          margin: 30px auto 0 auto;
+          overflow: hidden;
+          text-align: center;
+          .playing-lyric {
+            height: 20px;
+            line-height: 20px;
+            font-size: $font-size-medium;
+            color: $color-text-l;
+          }
+        }
       }
       .middle-r {
         display: inline-block;
@@ -411,6 +462,24 @@ export default {
       position: absolute;
       bottom: 50px;
       width: 100%;
+      .dot-wrapper {
+        text-align: center;
+        font-size: 0;
+        .dot {
+          display: inline-block;
+          vertical-align: middle;
+          margin: 0 4px;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: $color-text-l;
+          &.active {
+            width: 20px;
+            border-radius: 5px;
+            background: $color-text-ll;
+          }
+        }
+      }
       .progress-wrapper {
         display: flex;
         align-items: center;
