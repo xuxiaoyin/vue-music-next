@@ -13,6 +13,7 @@ export default function useFavorite() {
   }
 
   function toggleFavorite(song) {
+    console.log(song)
     let list
     if (isFavorite(song)) {
       // remove
