@@ -52,8 +52,19 @@ export function removeSong({ commit, state }, song) {
   commit('setSequenceList', sequenceList)
   commit('setPlayList', playlist)
   commit('setCurrentIndex', currentIndex)
+
+  if (!playlist.length) {
+    commit('setPlayingState', false)
+  }
 }
 
 function findIndex(list, song) {
   return list.findIndex(item => item.id === song.id)
+}
+
+export function clearSongList({ commit }) {
+  commit('setSequenceList', [])
+  commit('setPlayList', [])
+  commit('setCurrentIndex', 0)
+  commit('setPlayingState', false)
 }

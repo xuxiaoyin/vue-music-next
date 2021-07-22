@@ -34,8 +34,8 @@
 </template>
 
 <script>
-import Scroll from '@/components/base/scroll/scroll'
-import useFixed from '@/components/base/index-list/use-fixed'
+import Scroll from '@/components/wrap-scroll'
+import useFixed from '@/components/index-list/use-fixed'
 import useShortcut from './use-shortcut'
 
 export default {

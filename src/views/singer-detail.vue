@@ -5,59 +5,11 @@
 </template>
 
 <script>
+import createDetailComponent from '@/assets/js/create-detail-component'
 import { getSingerDetail } from '@/service/singer'
-import { processSongs } from '@/service/song'
-import MusicList from '@/components/music-list/music-list'
-import storage from 'good-storage'
 import { SINGER_KEY } from '@/assets/js/constant'
 
-export default {
-  name: 'singer-detail',
-  components: { MusicList },
-  props: {
-    singer: Object
-  },
-  data() {
-    return {
-      songs: [],
-      loading: true
-    }
-  },
-  computed: {
-    computedSinger() {
-      let ret = null
-      const singer = this.singer
-      if (singer) {
-        ret = singer
-      } else {
-        const cachedSinger = storage.session.get(SINGER_KEY)
-        if (cachedSinger && cachedSinger.mid === this.$route.params.id) {
-          ret = cachedSinger
-        }
-      }
-      return ret
-    },
-    pic() {
-      const computedSinger = this.computedSinger
-      return computedSinger && computedSinger.pic
-    },
-    title() {
-      const computedSinger = this.computedSinger
-      return computedSinger && computedSinger.name
-    }
-  },
-  async created() {
-    if (!this.computedSinger) {
-      const path = this.$route.matched[0].path
-      this.$router.push(path)
-      return
-    }
-    const result = await getSingerDetail(this.computedSinger)
-    const songs = await processSongs(result.songs)
-    this.songs = songs
-    this.loading = false
-  }
-}
+export default createDetailComponent('singer-detail', SINGER_KEY, getSingerDetail)
 </script>
 
 <style lang="scss" scoped>

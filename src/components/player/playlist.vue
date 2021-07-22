@@ -7,6 +7,9 @@
             <h1 class="title">
               <i class="icon" :class="modeIcon" @click="changeMode"></i>
               <span class="text">{{modeText}}</span>
+              <span class="clear" @click="showConfirm">
+                <i class="icon-clear"></i>
+              </span>
             </h1>
           </div>
           <scroll ref="scrollRef" class="list-content">
@@ -33,6 +36,12 @@
             <span>关闭</span>
           </div>
         </div>
+        <confirm
+          ref="confirRef"
+          @confirm="confirmClear"
+          text="是否清空播放列表？"
+          confirm-btn-text="清空"
+        ></confirm>
       </div>
     </transition>
   </teleport>
@@ -40,6 +49,7 @@
 
 <script>
 import Scroll from '@/components/base/scroll/scroll'
+import Confirm from '@/components/base/confirm/confirm'
 import { useStore } from 'vuex'
 import { computed, nextTick, ref, watch } from 'vue'
 import useMode from './use-mode'
@@ -47,12 +57,13 @@ import useFavorite from './use-favorite'
 
 export default {
   name: 'playlist',
-  components: { Scroll },
+  components: { Scroll, Confirm },
   setup() {
     const visible = ref(false)
     const removing = ref(false)
     const scrollRef = ref(null)
     const listRef = ref(null)
+    const confirRef = ref(null)
 
     const store = useStore()
     const playlist = computed(() => store.state.playList)
@@ -114,14 +125,28 @@ export default {
       removing.value = true
       store.dispatch('removeSong', song)
 
+      if (!playlist.value.length) {
+        hide()
+      }
+
       setTimeout(() => {
         removing.value = false
       }, 300)
     }
 
+    function showConfirm() {
+      confirRef.value.show()
+    }
+
+    function confirmClear() {
+      store.dispatch('clearSongList')
+      hide()
+    }
+
     return {
       scrollRef,
       listRef,
+      confirRef,
       visible,
       removing,
       playlist,
@@ -131,6 +156,8 @@ export default {
       getCurrentIcon,
       selectItem,
       removeSong,
+      showConfirm,
+      confirmClear,
       // useMode
       modeIcon,
       modeText,
