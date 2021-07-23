@@ -6,6 +6,7 @@
           class="item"
           v-for="item in topList"
           :key="item.id"
+          @click="selectItem(item)"
         >
           <div class="icon">
             <img width="100" height="100" v-lazy="item.pic">
@@ -19,12 +20,19 @@
         </li>
       </ul>
     </scroll>
+    <router-view v-slot="{ Component }">
+      <transition appear name="slide">
+        <component :is="Component" :data="selectedTop"></component>
+      </transition>
+    </router-view>
   </div>
 </template>
 
 <script>
 import Scroll from '@/components/base/scroll/scroll'
 import { getTopList } from '@/service/top-list'
+import { TOP_KEY } from '@/assets/js/constant'
+import storage from 'good-storage'
 
 export default {
   name: 'top-list',
@@ -32,14 +40,26 @@ export default {
   data() {
     return {
       topList: [],
-      loading: true
+      loading: true,
+      selectedTop: null
     }
   },
   async created () {
     const result = await getTopList()
     this.topList = result.topList
-    console.log(this.topList)
     this.loading = false
+  },
+  methods: {
+    selectItem(item) {
+      this.selectedTop = item
+      this.cacheTop(item)
+      this.$router.push({
+        path: `/top-list/${item.id}`
+      })
+    },
+    cacheTop(top) {
+      storage.session.set(TOP_KEY, top)
+    }
   }
 }
 </script>
